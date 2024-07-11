@@ -1,17 +1,12 @@
+-- Drop the function if it exists
 DROP FUNCTION IF EXISTS SafeDiv;
 
+-- Recreate the function with DOUBLE as the return type
 DELIMITER $$
 
-CREATE FUNCTION SafeDiv(a INT, b INT)
-RETURNS VARCHAR(64)
-DETERMINISTIC
+DELIMITER //
+CREATE FUNCTION SafeDiv(a INT, b INT) RETURNS FLOAT
 BEGIN
-    IF b = 0 THEN
-        RETURN '0';
-    ELSE
-        -- Convert calculation result to string with high precision
-        RETURN CAST(a / b AS DECIMAL(20,15));
-    END IF;
-END$$
-
+    RETURN IF(b = 0, 0, a / b);
+END //
 DELIMITER ;
