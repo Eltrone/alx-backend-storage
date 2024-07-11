@@ -1,12 +1,9 @@
--- Drop the function if it already exists
 DROP FUNCTION IF EXISTS SafeDiv;
 
--- Create the function
 DELIMITER $$
 
 CREATE FUNCTION SafeDiv(a INT, b INT)
-RETURNS DECIMAL(10,4)
-DETERMINISTIC
+RETURNS DECIMAL(10,4)  -- Ensures up to four decimal places
 BEGIN
     IF b = 0 THEN
         RETURN 0;
