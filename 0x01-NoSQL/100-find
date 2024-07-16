@@ -1,0 +1,2 @@
+// Uses a regular expression to find documents where the name starts with "Holberton"
+db.school.find({ "name": { $regex: /^Holberton/ } }).forEach(printjson);
