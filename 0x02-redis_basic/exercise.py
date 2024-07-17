@@ -1,101 +1,102 @@
 #!/usr/bin/env python3
 """
-Module Redis pour la gestion de cache avec décorateurs pour compter les appels
-et enregistrer les transactions.
+Module pour interagir avec Redis pour la gestion de cache.
 """
-
-import uuid
 import redis
-from typing import Union, Callable, Optional
+import uuid
+from typing import Callable, Union
 from functools import wraps
-
-
-def count_calls(method: Callable) -> Callable:
-    """
-    Décorateur qui compte les appels d'une méthode et stocke ce nombre.
-    """
-    @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        """ Incrémente le compteur d'appels à chaque appel. """
-        key = method.__qualname__
-        self._redis.incr(key)
-        return method(self, *args, **kwargs)
-    return wrapper
-
-
-def call_history(method: Callable) -> Callable:
-    """
-    Décorateur qui enregistre les entrées et sorties des appels de méthode.
-    """
-    input_key = f"{method.__qualname__}:inputs"
-    output_key = f"{method.__qualname__}:outputs"
-
-    @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        """ Enregistre les arguments et résultats de la méthode. """
-        self._redis.rpush(input_key, str(args))
-        result = method(self, *args, **kwargs)
-        self._redis.rpush(output_key, str(result))
-        return result
-    return wrapper
-
-
-def replay(method: Callable) -> None:
-    """
-    Affiche l'historique des appels d'une méthode, avec entrées et sorties.
-    """
-    input_key = f"{method.__qualname__}:inputs"
-    output_key = f"{method.__qualname__}:outputs"
-    inputs = method.__self__._redis.lrange(input_key, 0, -1)
-    outputs = method.__self__._redis.lrange(output_key, 0, -1)
-
-    print(f"{method.__qualname__} was called {len(inputs)} times:")
-    for inp, out in zip(inputs, outputs):
-        print(f"{method.__qualname__}(*{inp.decode('utf-8')}) -> " +
-              f"{out.decode('utf-8')}")
 
 class Cache:
     """
-    Classe Cache pour gérer le stockage Redis.
+    Classe de gestion de cache utilisant Redis.
     """
     def __init__(self):
-        """ Initialise Redis et nettoie la base de données. """
+        """
+        Initialisation du client Redis et nettoyage de la base de données.
+        """
         self._redis = redis.Redis()
         self._redis.flushdb()
 
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
-        Stocke les données avec une clé aléatoire.
+        Stocke les données dans Redis en utilisant une clé aléatoire.
         
         Args:
             data: Donnée à stocker (str, bytes, int, float).
         
         Returns:
-            str: Clé de stockage.
+            La clé sous laquelle les données sont stockées.
         """
         key = str(uuid.uuid4())
         self._redis.set(key, data)
         return key
 
-    def get(self, key: str, fn: Optional[Callable] = None) -> \
-            Union[str, bytes, int, float]:
+    def get(self, key: str, fn: Callable = None) -> Union[str, bytes, int, float]:
         """
-        Récupère et convertit une valeur de Redis si nécessaire.
+        Récupère une valeur de Redis et la convertit si nécessaire.
         
         Args:
-            key: Clé Redis.
-            fn: Fonction de conversion (optionnelle).
+            key: La clé Redis.
+            fn: Fonction optionnelle de conversion.
         
         Returns:
-            Valeur convertie ou brute.
+            Valeur convertie si fn est fournie, sinon valeur brute.
         """
         value = self._redis.get(key)
-        return fn(value) if fn else value
+        if fn is not None:
+            return fn(value)
+        return value
 
     def get_str(self, key: str) -> str:
-        """ Convertit et retourne une chaîne stockée dans Redis. """
+        """Récupère une chaîne de Redis."""
         return self.get(key, lambda x: x.decode())
 
     def get_int(self, key: str) -> int:
-        """ Convertit et retourne un entier stocké dans Redis. """
+        """Récupère un entier de Redis."""
         return self.get(key, int)
+
+def count_calls(method: Callable) -> Callable:
+    """
+    Décorateur qui compte et stocke le nombre de fois qu'une méthode est appelée.
+    """
+    key = method.__qualname__
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
+
+def call_history(method: Callable) -> Callable:
+    """
+    Décorateur qui stocke l'historique des appels de la fonction.
+    """
+    inputs_key = f"{method.__qualname__}:inputs"
+    outputs_key = f"{method.__qualname__}:outputs"
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        self._redis.rpush(inputs_key, str(args))
+        result = method(self, *args, **kwargs)
+        self._redis.rpush(outputs_key, str(result))
+        return result
+    return wrapper
+
+def replay(method: Callable):
+    """
+    Affiche l'historique des appels pour une méthode donnée.
+    """
+    inputs_key = f"{method.__qualname__}:inputs"
+    outputs_key = f"{method.__qualname__}:outputs"
+    inputs = method.__self__._redis.lrange(inputs_key, 0, -1)
+    outputs = method.__self__._redis.lrange(outputs_key, 0, -1)
+    method_call_count = method.__self__._redis.get(method.__qualname__)
+
+    print(f"{method.__qualname__} was called {method_call_count.decode('utf-8')} times:")
+    for input, output in zip(inputs, outputs):
+        print(f"{method.__qualname__}{input.decode()} -> {output.decode()}")
+
+# Application des décorateurs
+Cache.store = count_calls(Cache.store)
+Cache.store = call_history(Cache.store)
