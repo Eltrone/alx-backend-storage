@@ -33,7 +33,9 @@ class Cache:
         self._redis.set(key, data)
         return key
 
-    def get(self, key: str, fn: Callable = None) -> Union[str, bytes, int, float]:
+    def get(
+            self, key: str, fn: Callable = None
+            ) -> Union[str, bytes, int, float]:
         """
         Récupère une valeur de Redis et la convertit si nécessaire.
 
@@ -97,7 +99,8 @@ def replay(method: Callable):
     outputs = method.__self__._redis.lrange(outputs_key, 0, -1)
     method_call_count = method.__self__._redis.get(method.__qualname__)
 
-    print(f"{method.__qualname__} was called {method_call_count.decode('utf-8')} times:")
+    print(f"{method.__qualname__} was called" +
+          f"{method_call_count.decode('utf-8')} times:")
     for input, output in zip(inputs, outputs):
         print(f"{method.__qualname__}{input.decode()} -> {output.decode()}")
 
