@@ -100,8 +100,3 @@ def replay(method: Callable):
     print(f"{method.__qualname__} was called {method_call_count.decode('utf-8')} times:")
     for input, output in zip(inputs, outputs):
         print(f"{method.__qualname__}{input.decode()} -> {output.decode()}")
-
-
-# Application des décorateurs
-Cache.store = count_calls(Cache.store)
-Cache.store = call_history(Cache.store)
