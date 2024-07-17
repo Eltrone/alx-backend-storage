@@ -1,45 +1,51 @@
 #!/usr/bin/env python3
-"""Implementing an expiring web cache and tracker."""
+"""Module for implementing an expiring web cache and access tracker."""
 
-import requests
 import redis
+import requests
+from typing import Callable
 from functools import wraps
 
-client = redis.Redis()
+# Create a Redis client
+redis_client = redis.Redis()
 
-def cache(func):
-    """Decorator to cache web pages with an expiration time."""
+def cache_response(func: Callable) -> Callable:
+    """
+    Decorator to cache the responses of web requests and track access frequency.
+    """
     @wraps(func)
-    def wrapper(url):
-        """Check the cache first before fetching the URL."""
-        cached_page = client.get(url)
-        if cached_page:
-            return cached_page.decode('utf-8')
-        html_content = func(url)
-        client.setex(url, 10, html_content)  # Cache expiration set to 10 seconds
-        return html_content
-    return wrapper
+    def cache_wrapper(url: str) -> str:
+        """Check cache or fetch web content, and track the access."""
+        # Track access count for the given URL
+        access_key = f"count:{url}"
+        redis_client.incr(access_key)
+        
+        # Attempt to retrieve the cached content
+        cache_key = f"cached:{url}"
+        cached_content = redis_client.get(cache_key)
+        if cached_content:
+            return cached_content.decode('utf-8')
+        
+        # Fetch new content if not cached
+        content = func(url)
+        # Cache the new content with an expiration time (10 seconds)
+        redis_client.setex(cache_key, 10, content)
+        return content
 
-def count_url_calls(func):
-    """Decorator to track how many times a URL has been accessed."""
-    @wraps(func)
-    def wrapper(url):
-        """Increment the count every time the URL is fetched."""
-        count_key = f"count:{url}"
-        client.incr(count_key)
-        return func(url)
-    return wrapper
+    return cache_wrapper
 
-@cache
-@count_url_calls
+@cache_response
 def get_page(url: str) -> str:
-    """Fetch HTML content of a URL."""
+    """
+    Fetch and return the HTML content of the specified URL.
+    Uses the requests library to perform the web request.
+    """
     response = requests.get(url)
     return response.text
 
 # Example usage
 if __name__ == "__main__":
-    url = "http://slowwly.robertomurray.co.uk/delay/3000/url/http://www.google.com"
-    print(get_page(url))
-    print(get_page(url))  # This second call should fetch the result from the cache
-    print(client.get(f"count:{url}"))  # Displays the count of how many times the URL was accessed
+    test_url = "http://slowwly.robertomurray.co.uk/delay/3000/url/http://www.google.com"
+    print(get_page(test_url))  # Should fetch and cache
+    print(get_page(test_url))  # Should load from cache
+    print(redis_client.get(f"count:{test_url}"))  # Displays the access count
