@@ -1,51 +1,48 @@
 #!/usr/bin/env python3
-"""Module for implementing an expiring web cache and access tracker."""
+"""This module implements an expiring web cache and tracker using Redis."""
 
-import redis
 import requests
-from typing import Callable
+import redis
 from functools import wraps
 
-# Create a Redis client
+# Establish a connection to the Redis server
 redis_client = redis.Redis()
 
-def cache_response(func: Callable) -> Callable:
+def cache_and_track(url_function):
     """
-    Decorator to cache the responses of web requests and track access frequency.
+    A decorator that caches web pages and tracks the number of times a URL
+    has been accessed. It sets the cache to expire in 10 seconds.
     """
-    @wraps(func)
-    def cache_wrapper(url: str) -> str:
-        """Check cache or fetch web content, and track the access."""
-        # Track access count for the given URL
-        access_key = f"count:{url}"
-        redis_client.incr(access_key)
+    @wraps(url_function)
+    def wrapper(url):
+        """Retrieve web content from cache or make a new request."""
+        # Increment the access count each time the URL is requested
+        count_key = f"count:{url}"
+        redis_client.incr(count_key)
         
-        # Attempt to retrieve the cached content
-        cache_key = f"cached:{url}"
-        cached_content = redis_client.get(cache_key)
+        # Check if the URL's content is already cached
+        cached_key = f"cache:{url}"
+        cached_content = redis_client.get(cached_key)
         if cached_content:
             return cached_content.decode('utf-8')
         
-        # Fetch new content if not cached
-        content = func(url)
-        # Cache the new content with an expiration time (10 seconds)
-        redis_client.setex(cache_key, 10, content)
-        return content
+        # Fetch new content if not cached and cache it
+        response = url_function(url)
+        redis_client.setex(cached_key, 10, response)
+        return response
+    return wrapper
 
-    return cache_wrapper
-
-@cache_response
+@cache_and_track
 def get_page(url: str) -> str:
     """
-    Fetch and return the HTML content of the specified URL.
-    Uses the requests library to perform the web request.
+    Fetch the HTML content of the specified URL and return it as a string.
+    Uses the requests library to perform the HTTP request.
     """
     response = requests.get(url)
     return response.text
 
-# Example usage
+# Test example with a slow response URL
 if __name__ == "__main__":
     test_url = "http://slowwly.robertomurray.co.uk/delay/3000/url/http://www.google.com"
-    print(get_page(test_url))  # Should fetch and cache
-    print(get_page(test_url))  # Should load from cache
-    print(redis_client.get(f"count:{test_url}"))  # Displays the access count
+    print(get_page(test_url))  # This request should fetch and cache
+    print(get_page(test_url))  # This request should retrieve from cache
