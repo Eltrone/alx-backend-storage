@@ -7,6 +7,7 @@ import uuid
 from typing import Callable, Union
 from functools import wraps
 
+
 class Cache:
     """
     Classe de gestion de cache utilisant Redis.
@@ -21,10 +22,10 @@ class Cache:
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Stocke les données dans Redis en utilisant une clé aléatoire.
-        
+
         Args:
-            data: Donnée à stocker (str, bytes, int, float).
-        
+            data: Donnée à stocker (str, bytes, int, float)
+
         Returns:
             La clé sous laquelle les données sont stockées.
         """
@@ -35,11 +36,11 @@ class Cache:
     def get(self, key: str, fn: Callable = None) -> Union[str, bytes, int, float]:
         """
         Récupère une valeur de Redis et la convertit si nécessaire.
-        
+
         Args:
             key: La clé Redis.
             fn: Fonction optionnelle de conversion.
-        
+
         Returns:
             Valeur convertie si fn est fournie, sinon valeur brute.
         """
@@ -56,9 +57,10 @@ class Cache:
         """Récupère un entier de Redis."""
         return self.get(key, int)
 
+
 def count_calls(method: Callable) -> Callable:
     """
-    Décorateur qui compte et stocke le nombre de fois qu'une méthode est appelée.
+    Décorateur compte+stocke nombre fois qu'une méthode est appelée.
     """
     key = method.__qualname__
 
@@ -67,6 +69,7 @@ def count_calls(method: Callable) -> Callable:
         self._redis.incr(key)
         return method(self, *args, **kwargs)
     return wrapper
+
 
 def call_history(method: Callable) -> Callable:
     """
@@ -83,6 +86,7 @@ def call_history(method: Callable) -> Callable:
         return result
     return wrapper
 
+
 def replay(method: Callable):
     """
     Affiche l'historique des appels pour une méthode donnée.
@@ -96,6 +100,7 @@ def replay(method: Callable):
     print(f"{method.__qualname__} was called {method_call_count.decode('utf-8')} times:")
     for input, output in zip(inputs, outputs):
         print(f"{method.__qualname__}{input.decode()} -> {output.decode()}")
+
 
 # Application des décorateurs
 Cache.store = count_calls(Cache.store)
