@@ -6,6 +6,7 @@ Ce module implémente une classe de cache simple utilisant Redis.
 import redis
 import uuid
 from typing import Union
+from functools import wraps
 
 
 class Cache:
