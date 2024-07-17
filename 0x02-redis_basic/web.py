@@ -1,38 +1,60 @@
 #!/usr/bin/env python3
-'''A module with tools for request caching and tracking.
-'''
-import redis
+"""
+Module pour la mise en cache expirante des pages web et le suivi des accès.
+"""
+
 import requests
+import redis
 from functools import wraps
-from typing import Callable
+
+# Initialisation du client Redis
+cache = redis.Redis()
 
 
-redis_store = redis.Redis()
-'''The module-level Redis instance.
-'''
+def cache_page(func):
+    """
+    Décorateur pour mettre en cache les résultats de la fonction get_page et
+    compter les accès à chaque URL.
+    """
+    @wraps(func)
+    def wrapper(url: str) -> str:
+        # Incrémentation du compteur pour l'URL
+        count_key = f"count:{url}"
+        cache.incr(count_key)
 
+        # Vérification si la page est déjà en cache
+        cached_page = cache.get(url)
+        if cached_page is not None:
+            return cached_page.decode()
 
-def data_cacher(method: Callable) -> Callable:
-    '''Caches the output of fetched data.
-    '''
-    @wraps(method)
-    def invoker(url) -> str:
-        '''The wrapper function for caching the output.
-        '''
-        redis_store.incr(f'count:{url}')
-        result = redis_store.get(f'result:{url}')
-        if result:
-            return result.decode('utf-8')
-        result = method(url)
-        redis_store.set(f'count:{url}', 0)
-        redis_store.setex(f'result:{url}', 10, result)
+        # Appel de la fonction originale pour récupérer la page
+        result = func(url)
+
+        # Mise en cache du résultat avec une expiration de 10 secondes
+        cache.setex(url, 10, result)
         return result
-    return invoker
+    return wrapper
 
 
-@data_cacher
+@cache_page
 def get_page(url: str) -> str:
-    '''Returns the contentURL after caching the request's response,
-    and tracking the request.
-    '''
-    return requests.get(url).text
+    """
+    Récupère le contenu HTML d'une URL spécifique.
+
+    Args:
+        url: L'URL de la page à récupérer.
+
+    Returns:
+        Le contenu HTML de la page.
+    """
+    response = requests.get(url)
+    return response.text
+
+
+# Pour tester le fonctionnement du cache et du compteur
+if __name__ == "__main__":
+    url_test = "http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.google.com"
+    print(get_page(url_test))  # Devrait charger lentement et être mis en cache
+    print(get_page(url_test))  # Devrait être instantanément chargé du cache
+    # Devrait indiquer que l'URL a été accédée deux fois
+    print(cache.get(f"count:{url_test}").decode())
