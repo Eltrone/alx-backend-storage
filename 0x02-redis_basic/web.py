@@ -53,8 +53,8 @@ def get_page(url: str) -> str:
 
 # Pour tester le fonctionnement du cache et du compteur
 if __name__ == "__main__":
-    url_test = "http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.google.com"
+    url_base = "http://slowwly.robertomurray.co.uk/delay/5000/url/"
+    url_test = url_base + "http://www.google.com"
     print(get_page(url_test))  # Devrait charger lentement et être mis en cache
     print(get_page(url_test))  # Devrait être instantanément chargé du cache
-    # Devrait indiquer que l'URL a été accédée deux fois
-    print(cache.get(f"count:{url_test}").decode())
+    print(cache.get(f"count:{url_test}").decode())  # Accédée deux fois
