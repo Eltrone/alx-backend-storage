@@ -7,6 +7,7 @@ import redis
 import uuid
 from typing import Union
 
+
 class Cache:
     """
     Cache classe pour stocker et récupérer des valeurs à partir de Redis.
@@ -21,15 +22,19 @@ class Cache:
 
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
-        Stocke la donnée dans Redis en utilisant une clé unique et renvoie cette clé.
+        Stocke la donnée dans Redis en utilisant une clé unique et renvoie
+        cette clé.
         Arguments:
-            data: La donnée à stocker, peut être de type str, bytes, int ou float.
+            data: La donnée à stocker, peut être de type str, bytes, int ou
+            float.
         Returns:
-            Une chaîne de caractères représentant la clé sous laquelle les données sont stockées.
+            Une chaîne de caractères représentant la clé sous laquelle les
+            données sont stockées.
         """
         key = str(uuid.uuid4())
         self._redis.set(name=key, value=data)
         return key
+
 
 # L'utilisation dans un script principal pourrait ressembler à ceci:
 if __name__ == "__main__":
