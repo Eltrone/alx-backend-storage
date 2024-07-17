@@ -3,6 +3,7 @@
 Module pour la mise en cache expirante des pages web et le suivi des accès.
 """
 
+import time
 import requests
 import redis
 from functools import wraps
@@ -47,6 +48,7 @@ def get_page(url: str) -> str:
     Returns:
         Le contenu HTML de la page.
     """
+    time.sleep(5)  # Simule un délai de 5 secondes
     response = requests.get(url)
     return response.text
 
